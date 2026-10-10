@@ -21,3 +21,9 @@ https://github.com/LarsLTS/ABF_Animations/releases/latest/download/module.json
 ```
 
 Enable ABF Animations and its required modules in your Anima world, then reload Foundry.
+
+## AI usage disclosure
+
+AI tools were used to generate and modify parts of this module's code, tests, configuration, documentation, and UI text. ABF Animations does not use AI services or generate AI content during gameplay. Animation assets are provided by the installed JB2A library and are not bundled with this module.
+
+This project is not eligible for Foundry's **Zero AI** designation. See the [Foundry VTT AI Content Policy](https://foundryvtt.com/article/ai-policy/) for the rules governing official package listings and marketplace submissions.
