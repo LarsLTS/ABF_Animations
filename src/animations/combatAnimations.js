@@ -4,6 +4,16 @@ import { magicElementFor, magicEffectFor, magicTintFor } from './magicAnimationM
 import { weaponMeleeEffect } from './weaponAnimationMap.js';
 import { resolveTokenFromRef } from './resolveTokens.js';
 
+// Ki nature is independent of the selected critical table (air need not use electricity).
+const KI_ANIMATION_ELEMENTS = new Map([
+  ['fire', 'fire'],
+  ['air', 'wind'],
+  ['water', 'water'],
+  ['earth', 'earth'],
+  ['light', 'light'],
+  ['darkness', 'dark']
+]);
+
 /**
  * Reproduce el efecto de un resultado de combate 1v1 que impacto causando dano.
  *
@@ -73,22 +83,32 @@ export async function playCombatResultAnimation(flags) {
 }
 
 /**
- * Reproduce el ATAQUE de arma AL ATACAR (no al defender): SIEMPRE el swing MELEE del arma (id
- * del tipo jugado sobre cada objetivo, rotado hacia el atacante). Se ignora a proposito el flag
- * isProjectile (poco fiable): todo ataque de arma se anima como cuerpo a cuerpo. El tipo se
- * resuelve del ARMA directamente (nombre + critico) para acertarlo siempre. Sin objetivo, swing
- * sobre el atacante. Fire-and-forget (decorativo, no bloquea el flujo de ataque).
+ * Animate when an attack is declared. Ki elemental attacks use the element's projectile
+ * toward each target, or its casting effect on the attacker when no target is selected.
+ * Ordinary attacks and unavailable elemental assets fall back to the weapon's melee swing.
+ * Playback is decorative and does not block combat resolution.
  */
-export function playWeaponAttackAnimation(attackerToken, targetTokens, weapon) {
-  if (!attackerToken || !weapon) return;
-  const file = weaponMeleeEffect(weapon.name, weapon.system?.critic?.primary?.value);
+export function playWeaponAttackAnimation(
+  attackerToken,
+  targetTokens,
+  weapon,
+  attackData = {}
+) {
+  const element = KI_ANIMATION_ELEMENTS.get(attackData?.kiElement);
+  if (!attackerToken || (!weapon && !element)) return;
   const targets = (Array.isArray(targetTokens) ? targetTokens : []).filter(Boolean);
+  const weaponFile = weapon
+    ? weaponMeleeEffect(weapon.name, weapon.system?.critic?.primary?.value)
+    : [];
+  const file = element
+    ? [...magicEffectFor(element, targets.length ? 'proj' : 'cast'), ...weaponFile]
+    : weaponFile;
   // Sin objetivo: el arma sobre el atacante (pegada al actor), grande.
   if (!targets.length) {
     playEffect({
       file,
       source: attackerToken,
-      opts: { attachTo: true, scaleToObject: 3, fadeOut: 400 }
+      opts: { attachTo: true, scaleToObject: element ? 1.6 : 3, fadeOut: 400 }
     });
     return;
   }

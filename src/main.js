@@ -57,7 +57,7 @@ Hooks.on('createChatMessage', (message, _options, userId) => {
       const targets = (flags.targets ?? data.targets ?? [])
         .map(target => resolveTokenFromRef(target.tokenUuid || target.actorUuid))
         .filter(Boolean);
-      playWeaponAttackAnimation(token, targets, item);
+      playWeaponAttackAnimation(token, targets, item, data);
     }
   }
   if (flags.kind === 'combatResult' && flags.result?.maneuverSlug !== 'dano-retrasado') {

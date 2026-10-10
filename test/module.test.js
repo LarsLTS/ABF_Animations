@@ -6,6 +6,9 @@ import {
   legacyAttackForResult
 } from '../src/adapter.js';
 import { playEffect } from '../src/animations/AnimationService.js';
+import { playWeaponAttackAnimation } from '../src/animations/combatAnimations.js';
+import { magicEffectFor } from '../src/animations/magicAnimationMap.js';
+import { weaponMeleeEffect } from '../src/animations/weaponAnimationMap.js';
 
 let token;
 let calls;
@@ -157,6 +160,77 @@ test('missing JB2A, disabled playback or unavailable assets safely skip', async 
   assert.equal(calls.length, 0);
 });
 
+const weapon = {
+  name: 'Espada',
+  system: { critic: { primary: { value: 'cut' } } }
+};
+const elements = [
+  ['fire', 'fire'],
+  ['air', 'wind'],
+  ['water', 'water'],
+  ['earth', 'earth'],
+  ['light', 'light'],
+  ['darkness', 'dark']
+];
+
+for (const [kiElement, animation] of elements) {
+  test(`${kiElement} replaces the weapon animation independently of its critical table`, () => {
+    Sequencer.Database.entryExists = () => true;
+    const target = { id: 'defender' };
+    playWeaponAttackAnimation(token, [target], weapon, { kiElement, armorType: 'cut' });
+    assert.deepEqual(
+      calls.filter(call => call[0] === 'file'),
+      [['file', magicEffectFor(animation, 'proj')[0]]]
+    );
+    assert.ok(calls.some(call => call[0] === 'atLocation' && call[1] === token));
+    assert.ok(calls.some(call => call[0] === 'stretchTo' && call[1] === target));
+    assert.equal(calls.filter(call => call[0] === 'play').length, 1);
+  });
+}
+
+test('without targets an elemental attack casts on its exact attacker token', () => {
+  Sequencer.Database.entryExists = () => true;
+  playWeaponAttackAnimation(token, [], weapon, { kiElement: 'light' });
+  assert.ok(
+    calls.some(
+      call => call[0] === 'file' && call[1] === magicEffectFor('light', 'cast')[0]
+    )
+  );
+  assert.ok(calls.some(call => call[0] === 'attachTo' && call[1] === token));
+  assert.equal(calls.filter(call => call[0] === 'stretchTo').length, 0);
+});
+
+test('older attacks, unknown elements and missing elemental assets retain the weapon swing', () => {
+  const fallback = weaponMeleeEffect(weapon.name, 'cut')[0];
+  Sequencer.Database.entryExists = file => file === fallback;
+  for (const data of [{}, { kiElement: 'metal' }, { kiElement: 'darkness' }]) {
+    calls = [];
+    playWeaponAttackAnimation(token, [token], weapon, data);
+    assert.deepEqual(
+      calls.filter(call => call[0] === 'file'),
+      [['file', fallback]]
+    );
+  }
+});
+
+test('elemental metadata works without an owned weapon and skips missing dependencies', () => {
+  Sequencer.Database.entryExists = () => true;
+  playWeaponAttackAnimation(token, [token], undefined, { kiElement: 'water' });
+  assert.ok(
+    calls.some(
+      call => call[0] === 'file' && call[1] === magicEffectFor('water', 'proj')[0]
+    )
+  );
+  calls = [];
+  game.modules.delete('JB2A_DnD5e');
+  playWeaponAttackAnimation(token, [token], weapon, { kiElement: 'fire' });
+  assert.equal(calls.length, 0);
+  game.modules.set('JB2A_DnD5e', { active: true });
+  game.settings.get = () => false;
+  playWeaponAttackAnimation(token, [token], weapon, { kiElement: 'fire' });
+  assert.equal(calls.length, 0);
+});
+
 test('module init registers isolated settings and suppresses only built-in animation reads', async () => {
   const hooks = new Map();
   globalThis.Hooks = {
@@ -182,4 +256,29 @@ test('module init registers isolated settings and suppresses only built-in anima
   assert.equal(game.settings.get('abf-animations', 'enableAnimations'), true);
   assert.equal(game.settings.get('other-module', 'some-setting'), 'unchanged');
   assert.equal(typeof game.modules.get('abf-animations').api.play, 'function');
+  // Exercise the real chat hook: the module must forward kiElement and play once.
+  Sequencer.Database.entryExists = () => true;
+  token.actor.items.set('weapon', weapon);
+  for (const [kiElement, animation] of elements) {
+    calls = [];
+    const message = {
+      speaker: { token: 't' },
+      flags: {
+        animabf: {
+          kind: 'attackData',
+          attackData: { weaponId: 'weapon', kiElement, armorType: 'cut' },
+          targets: [{ tokenUuid: 'Scene.s.Token.t' }]
+        }
+      }
+    };
+    hooks.get('createChatMessage')(message, {}, 'u');
+    assert.deepEqual(
+      calls.filter(call => call[0] === 'file'),
+      [['file', magicEffectFor(animation, 'proj')[0]]]
+    );
+    assert.equal(calls.filter(call => call[0] === 'play').length, 1);
+    calls = [];
+    hooks.get('createChatMessage')(message, {}, 'another-player');
+    assert.equal(calls.length, 0);
+  }
 });
