@@ -18,14 +18,14 @@ No JB2A media is bundled. The module uses installed database entries and safely 
 
 Targets Foundry 13–14 and the inspected Anima 2.2.3 and 3.4.16 checkouts. Automated tests verify adapters; live visual testing on both versions is still required.
 
-| Action | Anima 2.2.3 | Anima 3.4.16 |
-| --- | --- | --- |
-| Weapon attacks | Attack-card event | Attack-card event |
-| Offensive spell/psychic casts | Element inferred from owned item | Item and attack metadata |
-| Successful dodge/block/shield defense | Source attack's defense-result update | Same event |
-| Supernatural shield creation | Generic shield animation | Generic shield animation |
-| Damaging spell/psychic impacts | Only when a unique rolling source attack identifies the context | Result-card metadata |
-| Ki charging, Zeon accumulation, technique activation | No equivalent action flags in this version | Actor/item update flags |
+| Action                                               | Anima 2.2.3                                                     | Anima 3.4.16             |
+| ---------------------------------------------------- | --------------------------------------------------------------- | ------------------------ |
+| Weapon attacks                                       | Attack-card event                                               | Attack-card event        |
+| Offensive spell/psychic casts                        | Element inferred from owned item                                | Item and attack metadata |
+| Successful dodge/block/shield defense                | Source attack's defense-result update                           | Same event               |
+| Supernatural shield creation                         | Generic shield animation                                        | Generic shield animation |
+| Damaging spell/psychic impacts                       | Only when a unique rolling source attack identifies the context | Result-card metadata     |
+| Ki charging, Zeon accumulation, technique activation | No equivalent action flags in this version                      | Actor/item update flags  |
 
 Automatic defense batches currently provide defensive reactions; elemental damage impacts require individual result cards. Utility spells/powers without attack cards are not inferred from chat text. Persistent charging visuals follow the existing action toggles; charging already active when a scene loads is not restored automatically.
 
@@ -36,6 +36,7 @@ The module suppresses the newer system's built-in animations while active by int
 ```sh
 npm test
 npm run check
+npm run lint
 ```
 
 Source is served directly; no build or dependency installation is required. To test locally, copy this repository into your Foundry `Data/modules/abf-animations` directory, excluding `.git` and `test`, and reload.
@@ -43,3 +44,7 @@ Source is served directly; no build or dependency installation is required. To t
 ## Source attribution
 
 Animation maps and playback helpers were extracted from [LarsLTS/AnimaBeyondFoundry](https://github.com/LarsLTS/AnimaBeyondFoundry), feature branch `feat/expand-jb2a-action-animations` at `28788366`. Original comments and mappings are retained. JB2A and Sequencer remain separate dependencies and retain their own licenses.
+
+## Code quality
+
+[Trunk Check](https://docs.trunk.io/code-quality) manages pinned versions of ESLint, Prettier, Markdownlint, YAMLlint and Actionlint. Install the [Trunk CLI](https://docs.trunk.io/code-quality/overview/getting-started/installation), then use `npm run lint` to check the entire repository or `npm run format` to apply formatting. Foundry browser globals are declared in `.eslintrc.cjs`. Trunk manages its own tools, so no npm dependencies are needed.

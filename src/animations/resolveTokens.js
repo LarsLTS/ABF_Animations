@@ -20,7 +20,8 @@ export function resolveTokenFromRef(ref) {
 
   // 2) Token id plano en el canvas activo.
   const byId =
-    globalThis.canvas?.tokens?.get?.(ref) ?? globalThis.canvas?.tokens?.placeables?.find?.(p => p.id === ref);
+    globalThis.canvas?.tokens?.get?.(ref) ??
+    globalThis.canvas?.tokens?.placeables?.find?.(p => p.id === ref);
   if (byId) return byId;
 
   // 3) Actor id -> primer token activo de ese actor en la escena.

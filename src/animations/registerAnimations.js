@@ -87,7 +87,11 @@ function syncKiChargeAura(actor) {
 export function registerAnimationHooks() {
   Hooks.on('updateActor', (actor, changes, _opts, userId) => {
     if (game.user?.id !== userId) return;
-    if (!(KI_CHARGE_FLAG in changes) && !foundry.utils.hasProperty(changes, KI_CHARGE_FLAG)) return;
+    if (
+      !(KI_CHARGE_FLAG in changes) &&
+      !foundry.utils.hasProperty(changes, KI_CHARGE_FLAG)
+    )
+      return;
     syncKiChargeAura(actor);
   });
 

@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "test": "node test/module.test.js",
-    "check": "node scripts/check.mjs"
+    "check": "node scripts/check.mjs",
+    "lint": "trunk check --all",
+    "format": "trunk fmt --all"
   }
 }
