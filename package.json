@@ -6,6 +6,7 @@
   "scripts": {
     "test": "node test/module.test.js && node test/release.test.js",
     "check": "node scripts/check.mjs",
+    "sanitize-local-paths": "node scripts/sanitize-local-paths.mjs",
     "lint": "trunk check --all",
     "format": "trunk fmt --all",
     "package": "node scripts/package.mjs"

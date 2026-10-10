@@ -5,6 +5,7 @@ import {
   animationsEnabled
 } from './AnimationService.js';
 import { effectFor } from './animationMap.js';
+import { registerDependencyCheck } from '../dependencyCheck.js';
 
 const KI_CHARGE_FLAG = 'flags.animabf.chargingKi';
 const kiGroundName = tokenId => `abf-ki-charge-ground-${tokenId}`;
@@ -14,6 +15,7 @@ const kiStrandsName = tokenId => `abf-ki-charge-strands-${tokenId}`;
  * Setting global on/off de animaciones (default true). Se registra en el hook init.
  */
 export function registerAnimationSettings() {
+  registerDependencyCheck();
   game.settings.register('abf-animations', 'enableAnimations', {
     name: 'Enable animations',
     hint: 'Play ABF action animations using Sequencer and either JB2A library.',
