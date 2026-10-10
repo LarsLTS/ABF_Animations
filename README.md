@@ -22,6 +22,11 @@ https://github.com/LarsLTS/ABF_Animations/releases/latest/download/module.json
 
 Enable ABF Animations and its required modules in your Anima world, then reload Foundry.
 
+Under **Configure Settings → ABF Animations**, click **Check dependencies** to see
+missing or disabled required packages, version requirements, and dependencies of
+those packages. Either JB2A library satisfies the animation requirement; Free
+requires **0.7.4 or newer** for all configured fallbacks.
+
 ## Elemental Ki attacks
 
 When the system records an attack's `kiElement`, the module keeps the weapon swing
@@ -31,6 +36,13 @@ The element is independent of the critical table selected for armor calculations
 Without a target, the swing and accent play on the attacker. Weapon attacks do not
 use casting circles or spell projectiles. Older attacks without an element and
 unavailable elemental assets keep the ordinary weapon animation.
+
+## Local development paths
+
+Trunk can generate ignored tool wrappers, logs and cache links containing absolute
+home paths. Run `npm run sanitize-local-paths` after using Trunk to replace those
+paths with portable references in the local repository. Shared cache files remain
+untouched. These generated files are excluded from Git and release packages.
 
 ## AI usage disclosure
 

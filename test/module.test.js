@@ -9,6 +9,7 @@ import { playEffect } from '../src/animations/AnimationService.js';
 import { playWeaponAttackAnimation } from '../src/animations/combatAnimations.js';
 import { magicEffectFor } from '../src/animations/magicAnimationMap.js';
 import { weaponMeleeEffect } from '../src/animations/weaponAnimationMap.js';
+import { collectDependencyReport, dependencyReportHTML } from '../src/dependencyCheck.js';
 
 let token;
 let calls;
@@ -249,8 +250,13 @@ test('module init registers isolated settings and suppresses only built-in anima
   game.animabf = {};
   game.modules.set('abf-animations', {});
   const registered = [];
+  const menus = [];
+  globalThis.foundry = {
+    applications: { api: { DialogV2: class {} } }
+  };
   game.settings = {
     register: (scope, key, options) => registered.push({ scope, key, options }),
+    registerMenu: (scope, key, options) => menus.push({ scope, key, options }),
     get: scope => (scope === 'other-module' ? 'unchanged' : true)
   };
   await import('../src/main.js');
@@ -260,6 +266,9 @@ test('module init registers isolated settings and suppresses only built-in anima
     0.7
   );
   assert.ok(registered.every(setting => setting.scope === 'abf-animations'));
+  assert.equal(menus[0].key, 'checkDependencies');
+  assert.equal(menus[0].scope, 'abf-animations');
+  assert.ok(menus[0].options.type.prototype instanceof foundry.applications.api.DialogV2);
   assert.equal(game.settings.get('animabf', 'enableAnimations'), false);
   assert.equal(game.settings.get('abf-animations', 'enableAnimations'), true);
   assert.equal(game.settings.get('other-module', 'some-setting'), 'unchanged');
@@ -297,4 +306,101 @@ test('module init registers isolated settings and suppresses only built-in anima
     hooks.get('createChatMessage')(message, {}, 'another-player');
     assert.equal(calls.length, 0);
   }
+});
+
+const newerVersion = (a, b) => a.localeCompare(b, undefined, { numeric: true }) > 0;
+function dependencyFixture() {
+  const modules = new Map([
+    [
+      'abf-animations',
+      {
+        id: 'abf-animations',
+        title: 'ABF Animations',
+        active: true,
+        version: '0.2.0',
+        relationships: {
+          requires: [{ id: 'sequencer', type: 'module' }],
+          systems: [{ id: 'animabf', compatibility: { minimum: '2.2.3' } }]
+        }
+      }
+    ],
+    ['sequencer', { id: 'sequencer', active: true, version: '3.0.0' }],
+    ['JB2A_DnD5e', { id: 'JB2A_DnD5e', active: true, version: '0.7.4' }]
+  ]);
+  return {
+    modules,
+    system: { id: 'animabf', version: '2.2.3' },
+    isNewerVersion: newerVersion
+  };
+}
+
+test('dependency check follows disabled modules, system requirements, shared constraints and cycles', () => {
+  const fixture = dependencyFixture();
+  fixture.modules.get('sequencer').relationships = {
+    requires: [{ id: 'socketlib', compatibility: { minimum: '2.0.0' } }, { id: 'absent' }]
+  };
+  fixture.modules.set('socketlib', {
+    id: 'socketlib',
+    active: false,
+    version: '1.0.0',
+    relationships: { requires: [{ id: 'sequencer' }, { id: 'nested-missing' }] }
+  });
+  fixture.system.relationships = {
+    requires: [{ id: 'socketlib', compatibility: { minimum: '3.0.0' } }]
+  };
+  const rows = collectDependencyReport(fixture);
+  const socket = rows.find(row => row.id === 'socketlib');
+  assert.deepEqual(socket.issues, [
+    'Disabled',
+    'Requires version 2.0.0 or newer',
+    'Requires version 3.0.0 or newer'
+  ]);
+  assert.deepEqual(socket.requiredBy, ['sequencer', 'animabf']);
+  assert.deepEqual(rows.find(row => row.id === 'nested-missing').issues, ['Missing']);
+  assert.equal(rows.filter(row => row.id === 'sequencer').length, 1);
+});
+
+test('dependency check accepts either JB2A library and checks the Free minimum', () => {
+  const fixture = dependencyFixture();
+  assert.ok(collectDependencyReport(fixture).every(row => !row.issues.length));
+  fixture.modules.get('JB2A_DnD5e').version = '0.7.3';
+  assert.deepEqual(
+    collectDependencyReport(fixture).find(row => row.id === 'JB2A_DnD5e').issues,
+    ['Requires version 0.7.4 or newer']
+  );
+  fixture.modules.set('jb2a_patreon', {
+    id: 'jb2a_patreon',
+    active: true,
+    version: '0.7.2',
+    relationships: { requires: [{ id: 'patreon-dependency' }] }
+  });
+  const rows = collectDependencyReport(fixture);
+  assert.ok(!rows.some(row => row.id === 'JB2A_DnD5e'));
+  assert.deepEqual(rows.find(row => row.id === 'jb2a_patreon').issues, []);
+  assert.deepEqual(rows.find(row => row.id === 'patreon-dependency').issues, ['Missing']);
+});
+
+test('dependency check distinguishes disabled JB2A from an absent library and checks system versions', () => {
+  const fixture = dependencyFixture();
+  fixture.modules.get('JB2A_DnD5e').active = false;
+  fixture.system.version = '2.2.2';
+  let rows = collectDependencyReport(fixture);
+  assert.deepEqual(rows.find(row => row.id === 'JB2A_DnD5e').issues, ['Disabled']);
+  assert.deepEqual(rows.find(row => row.id === 'animabf').issues, [
+    'Requires version 2.2.3 or newer'
+  ]);
+  fixture.modules.delete('JB2A_DnD5e');
+  rows = collectDependencyReport(fixture);
+  assert.deepEqual(rows.find(row => row.title === 'JB2A Free or Patreon').issues, [
+    'Missing'
+  ]);
+});
+
+test('dependency report escapes package metadata before rendering', () => {
+  const fixture = dependencyFixture();
+  fixture.modules.get('sequencer').title = '<script>alert("x")</script>';
+  const html = dependencyReportHTML(collectDependencyReport(fixture));
+  assert.ok(!html.includes('<script>'));
+  assert.ok(html.includes('&lt;script&gt;'));
+  assert.ok(html.includes('All required packages are installed'));
 });
