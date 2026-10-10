@@ -4,10 +4,10 @@ import { magicElementFor, magicEffectFor, magicTintFor } from './magicAnimationM
 import { weaponMeleeEffect } from './weaponAnimationMap.js';
 import { resolveTokenFromRef } from './resolveTokens.js';
 
-// Ki nature is independent of the selected critical table (air need not use electricity).
+// Ki weapon accents depend on the element, independently of the selected critical table.
 const KI_ANIMATION_ELEMENTS = new Map([
   ['fire', 'fire'],
-  ['air', 'wind'],
+  ['air', 'lightning'],
   ['water', 'water'],
   ['earth', 'earth'],
   ['light', 'light'],
@@ -83,10 +83,10 @@ export async function playCombatResultAnimation(flags) {
 }
 
 /**
- * Animate when an attack is declared. Ki elemental attacks use the element's projectile
- * toward each target, or its casting effect on the attacker when no target is selected.
- * Ordinary attacks and unavailable elemental assets fall back to the weapon's melee swing.
- * Playback is decorative and does not block combat resolution.
+ * Weapon attacks retain their melee swing and add a local elemental accent.
+ * Air crackles with electricity; Fire flares at the weapon's target. These effects
+ * decorate the declared attack, without casting circles or spell projectiles.
+ * With no target, both effects play on the attacker. Missing assets safely skip.
  */
 export function playWeaponAttackAnimation(
   attackerToken,
@@ -99,24 +99,29 @@ export function playWeaponAttackAnimation(
   const targets = (Array.isArray(targetTokens) ? targetTokens : []).filter(Boolean);
   const weaponFile = weapon
     ? weaponMeleeEffect(weapon.name, weapon.system?.critic?.primary?.value)
-    : [];
-  const file = element
-    ? [...magicEffectFor(element, targets.length ? 'proj' : 'cast'), ...weaponFile]
-    : weaponFile;
-  // Sin objetivo: el arma sobre el atacante (pegada al actor), grande.
-  if (!targets.length) {
-    playEffect({
-      file,
-      source: attackerToken,
-      opts: { attachTo: true, scaleToObject: element ? 1.6 : 3, fadeOut: 400 }
-    });
-    return;
-  }
-  // Con objetivo: el arma se ESTIRA del atacante al enemigo (stretchTo). Se ancla en el atacante
-  // (pegada al actor) y su punta/filo llega JUSTO hasta el objetivo, ajustandose al alcance real
-  // sin desbordar a las casillas contiguas (el problema de escalar a lo bruto con scaleToObject).
-  for (const target of targets) {
-    playEffect({ file, source: attackerToken, target, opts: { fadeOut: 400 } });
+    : null;
+  const accentFile =
+    element === 'lightning'
+      ? ['jb2a.static_electricity.01.blue', 'jb2a.static_electricity.03.blue']
+      : magicEffectFor(element, 'impact');
+  for (const target of targets.length ? targets : [null]) {
+    if (weaponFile) {
+      playEffect({
+        file: weaponFile,
+        source: attackerToken,
+        target,
+        opts: target
+          ? { fadeOut: 400 }
+          : { attachTo: true, scaleToObject: 3, fadeOut: 400 }
+      });
+    }
+    if (accentFile) {
+      playEffect({
+        file: accentFile,
+        source: target ?? attackerToken,
+        opts: { attachTo: !target, scaleToObject: 1.2, fadeOut: 250 }
+      });
+    }
   }
 }
 

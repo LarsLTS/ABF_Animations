@@ -166,7 +166,7 @@ const weapon = {
 };
 const elements = [
   ['fire', 'fire'],
-  ['air', 'wind'],
+  ['air', 'lightning'],
   ['water', 'water'],
   ['earth', 'earth'],
   ['light', 'light'],
@@ -174,26 +174,34 @@ const elements = [
 ];
 
 for (const [kiElement, animation] of elements) {
-  test(`${kiElement} replaces the weapon animation independently of its critical table`, () => {
+  test(`${kiElement} decorates a weapon swing independently of its critical table`, () => {
     Sequencer.Database.entryExists = () => true;
     const target = { id: 'defender' };
     playWeaponAttackAnimation(token, [target], weapon, { kiElement, armorType: 'cut' });
     assert.deepEqual(
       calls.filter(call => call[0] === 'file'),
-      [['file', magicEffectFor(animation, 'proj')[0]]]
+      [
+        ['file', weaponMeleeEffect(weapon.name, 'cut')[0]],
+        [
+          'file',
+          animation === 'lightning'
+            ? 'jb2a.static_electricity.01.blue'
+            : magicEffectFor(animation, 'impact')[0]
+        ]
+      ]
     );
     assert.ok(calls.some(call => call[0] === 'atLocation' && call[1] === token));
     assert.ok(calls.some(call => call[0] === 'stretchTo' && call[1] === target));
-    assert.equal(calls.filter(call => call[0] === 'play').length, 1);
+    assert.equal(calls.filter(call => call[0] === 'play').length, 2);
   });
 }
 
-test('without targets an elemental attack casts on its exact attacker token', () => {
+test('without targets the weapon swing and accent play on the exact attacker token', () => {
   Sequencer.Database.entryExists = () => true;
   playWeaponAttackAnimation(token, [], weapon, { kiElement: 'light' });
   assert.ok(
     calls.some(
-      call => call[0] === 'file' && call[1] === magicEffectFor('light', 'cast')[0]
+      call => call[0] === 'file' && call[1] === magicEffectFor('light', 'impact')[0]
     )
   );
   assert.ok(calls.some(call => call[0] === 'attachTo' && call[1] === token));
@@ -218,7 +226,7 @@ test('elemental metadata works without an owned weapon and skips missing depende
   playWeaponAttackAnimation(token, [token], undefined, { kiElement: 'water' });
   assert.ok(
     calls.some(
-      call => call[0] === 'file' && call[1] === magicEffectFor('water', 'proj')[0]
+      call => call[0] === 'file' && call[1] === magicEffectFor('water', 'impact')[0]
     )
   );
   calls = [];
@@ -256,7 +264,7 @@ test('module init registers isolated settings and suppresses only built-in anima
   assert.equal(game.settings.get('abf-animations', 'enableAnimations'), true);
   assert.equal(game.settings.get('other-module', 'some-setting'), 'unchanged');
   assert.equal(typeof game.modules.get('abf-animations').api.play, 'function');
-  // Exercise the real chat hook: the module must forward kiElement and play once.
+  // Exercise the real chat hook: one weapon swing and one accent, without duplicate broadcasts.
   Sequencer.Database.entryExists = () => true;
   token.actor.items.set('weapon', weapon);
   for (const [kiElement, animation] of elements) {
@@ -274,9 +282,17 @@ test('module init registers isolated settings and suppresses only built-in anima
     hooks.get('createChatMessage')(message, {}, 'u');
     assert.deepEqual(
       calls.filter(call => call[0] === 'file'),
-      [['file', magicEffectFor(animation, 'proj')[0]]]
+      [
+        ['file', weaponMeleeEffect(weapon.name, 'cut')[0]],
+        [
+          'file',
+          animation === 'lightning'
+            ? 'jb2a.static_electricity.01.blue'
+            : magicEffectFor(animation, 'impact')[0]
+        ]
+      ]
     );
-    assert.equal(calls.filter(call => call[0] === 'play').length, 1);
+    assert.equal(calls.filter(call => call[0] === 'play').length, 2);
     calls = [];
     hooks.get('createChatMessage')(message, {}, 'another-player');
     assert.equal(calls.length, 0);

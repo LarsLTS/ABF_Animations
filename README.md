@@ -24,11 +24,13 @@ Enable ABF Animations and its required modules in your Anima world, then reload 
 
 ## Elemental Ki attacks
 
-When the system records an attack's `kiElement`, the module replaces the weapon swing
-with an effect for Fire, Air, Water, Earth, Light or Darkness. The element is independent
-of the critical table selected for armor calculations. Without a selected target, the
-effect plays on the attacker. Older attacks without an element keep their weapon animation;
-unavailable elemental assets fall back to the weapon animation.
+When the system records an attack's `kiElement`, the module keeps the weapon swing
+and adds an elemental accent at its target. Fire uses a flame impact; Air uses blue
+static electricity. Water, Earth, Light and Darkness use their local impact effects.
+The element is independent of the critical table selected for armor calculations.
+Without a target, the swing and accent play on the attacker. Weapon attacks do not
+use casting circles or spell projectiles. Older attacks without an element and
+unavailable elemental assets keep the ordinary weapon animation.
 
 ## AI usage disclosure
 
