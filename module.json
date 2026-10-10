@@ -32,6 +32,6 @@
     ]
   },
   "url": "https://github.com/LarsLTS/ABF_Animations",
-  "manifest": "https://raw.githubusercontent.com/LarsLTS/ABF_Animations/main/module.json",
-  "download": "https://github.com/LarsLTS/ABF_Animations/archive/refs/heads/main.zip"
+  "manifest": "https://github.com/LarsLTS/ABF_Animations/releases/latest/download/module.json",
+  "download": "https://github.com/LarsLTS/ABF_Animations/releases/download/v0.1.0/abf-animations.zip"
 }

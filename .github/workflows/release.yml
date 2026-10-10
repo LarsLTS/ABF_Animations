@@ -1,0 +1,39 @@
+name: Release
+on:
+  push:
+    tags: [v*]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+      - name: Test module
+        run: npm test
+      - name: Validate module
+        run: npm run check
+      - uses: trunk-io/trunk-action@04ba50e7658c81db7356da96657e6e77f220bfa3 # v1
+        with:
+          check-mode: all
+      - name: Package release
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: npm run package -- "$RELEASE_TAG"
+      - name: Publish release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: >-
+          gh release create "$RELEASE_TAG"
+          dist/module.json dist/abf-animations.zip
+          --verify-tag --generate-notes --title "$RELEASE_TAG"

@@ -12,7 +12,7 @@ A Foundry VTT animation module made for [Anima Beyond Fantasy](https://github.co
 Install ABF Animations using this manifest URL:
 
 ```text
-https://raw.githubusercontent.com/LarsLTS/ABF_Animations/main/module.json
+https://github.com/LarsLTS/ABF_Animations/releases/latest/download/module.json
 ```
 
 Enable ABF Animations and its required modules in your Anima world, then reload Foundry.

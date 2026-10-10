@@ -4,9 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node test/module.test.js",
+    "test": "node test/module.test.js && node test/release.test.js",
     "check": "node scripts/check.mjs",
     "lint": "trunk check --all",
-    "format": "trunk fmt --all"
+    "format": "trunk fmt --all",
+    "package": "node scripts/package.mjs"
   }
 }
