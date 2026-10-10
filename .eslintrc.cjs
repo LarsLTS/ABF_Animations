@@ -10,6 +10,7 @@ module.exports = {
     ui: 'readonly',
     canvas: 'readonly',
     Sequence: 'readonly',
+    Sequencer: 'readonly',
     fromUuidSync: 'readonly'
   }
 };
