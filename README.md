@@ -27,6 +27,10 @@ missing or disabled required packages, version requirements, and dependencies of
 those packages. Either JB2A library satisfies the animation requirement; Free
 requires **0.7.4 or newer** for all configured fallbacks.
 
+On Anima 2.x, animations also follow the older combat dialogs opened by macros: weapon attacks,
+spell and psychic casting, successful defenses, and damaging supernatural hits.
+The legacy dialog integration is inactive on Anima 3.x.
+
 ## Elemental Ki attacks
 
 When the system records an attack's `kiElement`, the module keeps the weapon swing
