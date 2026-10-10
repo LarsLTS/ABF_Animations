@@ -9,6 +9,10 @@ import { playEffect } from '../src/animations/AnimationService.js';
 import { playWeaponAttackAnimation } from '../src/animations/combatAnimations.js';
 import { magicEffectFor } from '../src/animations/magicAnimationMap.js';
 import { weaponMeleeEffect } from '../src/animations/weaponAnimationMap.js';
+import {
+  animateLegacyCombatDialog,
+  registerLegacyCombatDialogHooks
+} from '../src/legacyCombatDialogs.js';
 import { collectDependencyReport, dependencyReportHTML } from '../src/dependencyCheck.js';
 
 let token;
@@ -246,7 +250,7 @@ test('module init registers isolated settings and suppresses only built-in anima
     once: (name, callback) => hooks.set(name, callback),
     on: (name, callback) => hooks.set(name, callback)
   };
-  game.system = { id: 'animabf' };
+  game.system = { id: 'animabf', version: '2.2.3' };
   game.animabf = {};
   game.modules.set('abf-animations', {});
   const registered = [];
@@ -268,6 +272,7 @@ test('module init registers isolated settings and suppresses only built-in anima
   assert.ok(registered.every(setting => setting.scope === 'abf-animations'));
   assert.equal(menus[0].key, 'checkDependencies');
   assert.equal(menus[0].scope, 'abf-animations');
+  assert.equal(typeof hooks.get('renderGMCombatDialog'), 'function');
   assert.ok(menus[0].options.type.prototype instanceof foundry.applications.api.DialogV2);
   assert.equal(game.settings.get('animabf', 'enableAnimations'), false);
   assert.equal(game.settings.get('abf-animations', 'enableAnimations'), true);
@@ -403,4 +408,214 @@ test('dependency report escapes package metadata before rendering', () => {
   assert.ok(!html.includes('<script>'));
   assert.ok(html.includes('&lt;script&gt;'));
   assert.ok(html.includes('All required packages are installed'));
+});
+
+function legacyDialog(type = 'combat') {
+  game.system = { id: 'animabf', version: '2.2.3' };
+  game.user.isGM = true;
+  Sequencer.Database.entryExists = () => true;
+  const defenderToken = { id: 'defender', actor: { items: new Map() } };
+  canvas.tokens.get = id =>
+    id === 't' ? token : id === 'defender' ? defenderToken : null;
+  const item = {
+    id: 'item',
+    name: 'Sword',
+    type: type === 'mystic' ? 'spell' : type === 'psychic' ? 'psychicPower' : 'weapon',
+    system: {
+      critic: { primary: { value: 'cut' } },
+      via: { value: 'fire' },
+      discipline: { value: 'telepathy' }
+    }
+  };
+  token.actor.items.set('item', item);
+  return {
+    modalData: {
+      attacker: {
+        token: { id: token.id, object: token },
+        actor: token.actor,
+        result: {
+          type,
+          values: {
+            weaponUsed: type === 'combat' ? 'item' : '',
+            spellUsed: type === 'mystic' ? 'item' : '',
+            powerUsed: type === 'psychic' ? 'item' : '',
+            critic: 'cut',
+            projectile: { value: true }
+          }
+        }
+      },
+      defender: {
+        token: { id: defenderToken.id, object: defenderToken },
+        actor: defenderToken.actor
+      }
+    }
+  };
+}
+
+test('legacy macro dialog animates a weapon declaration once across redraws', async () => {
+  const dialog = legacyDialog();
+  await animateLegacyCombatDialog(dialog);
+  await animateLegacyCombatDialog(dialog);
+  assert.equal(calls.filter(([key]) => key === 'play').length, 1);
+  assert.ok(
+    calls.some(([key, target]) => key === 'stretchTo' && target.id === 'defender')
+  );
+  dialog.modalData.defender.result = { type: 'combat', values: { type: 'dodge' } };
+  dialog.modalData.calculations = { difference: -20, damage: 0 };
+  await animateLegacyCombatDialog(dialog);
+  await animateLegacyCombatDialog(dialog);
+  assert.equal(calls.filter(([key]) => key === 'play').length, 2);
+  assert.ok(
+    calls.some(([key, file]) => key === 'file' && file === 'jb2a.wind_lines.01.01.white')
+  );
+});
+
+test('legacy spell and psychic hits use item metadata and animate after defense arrives', async () => {
+  for (const type of ['mystic', 'psychic']) {
+    calls = [];
+    const dialog = legacyDialog(type);
+    // The combat dialog is owned by its receiving GM, even if another GM is elected.
+    game.users = { activeGM: { id: 'another-gm' } };
+    await animateLegacyCombatDialog(dialog);
+    assert.equal(calls.filter(([key]) => key === 'play').length, 1);
+    dialog.modalData.defender.result = { type: 'combat', values: { type: 'block' } };
+    dialog.modalData.calculations = { difference: 50, damage: 30 };
+    await animateLegacyCombatDialog(dialog);
+    await animateLegacyCombatDialog(dialog);
+    assert.equal(calls.filter(([key]) => key === 'play').length, 3);
+    assert.ok(calls.some(([key]) => key === 'stretchTo'));
+    const impact = magicEffectFor(type === 'mystic' ? 'fire' : 'mind', 'impact')[0];
+    assert.ok(calls.some(([key, file]) => key === 'file' && file === impact));
+  }
+});
+
+test('legacy resistance, failed defenses and armor absorbing damage do not show a successful defense', async () => {
+  for (const [type, difference] of [
+    ['resistance', -20],
+    ['combat', 50]
+  ]) {
+    calls = [];
+    const dialog = legacyDialog();
+    dialog.modalData.defender.result = { type, values: { type: 'dodge' } };
+    dialog.modalData.calculations = { difference, damage: 0 };
+    await animateLegacyCombatDialog(dialog);
+    assert.equal(calls.filter(([key]) => key === 'play').length, 1);
+  }
+});
+
+test('legacy counterattacks animate again after the dialog changes roles', async () => {
+  const dialog = legacyDialog();
+  await animateLegacyCombatDialog(dialog);
+  const attacker = dialog.modalData.attacker;
+  dialog.modalData.attacker = { ...dialog.modalData.defender, result: undefined };
+  dialog.modalData.defender = { ...attacker, result: undefined };
+  dialog.modalData.calculations = undefined;
+  await animateLegacyCombatDialog(dialog);
+  dialog.modalData.attacker.result = { type: 'combat', values: { critic: 'impact' } };
+  await animateLegacyCombatDialog(dialog);
+  await animateLegacyCombatDialog(dialog);
+  assert.equal(calls.filter(([key]) => key === 'play').length, 2);
+  assert.equal(calls.filter(([key]) => key === 'atLocation').at(-1)[1].id, 'defender');
+});
+
+test('legacy dialog playback is GM-only and safely skips unavailable assets', async () => {
+  const dialog = legacyDialog();
+  game.user.isGM = false;
+  await animateLegacyCombatDialog(dialog);
+  assert.equal(calls.length, 0);
+  game.user.isGM = true;
+  Sequencer.Database.entryExists = () => false;
+  await animateLegacyCombatDialog(dialog);
+  assert.equal(calls.length, 0);
+});
+
+test('Anima 3.x never registers or runs legacy dialog playback or emits its warnings', async () => {
+  const registered = [];
+  const warnings = [];
+  const originalWarn = console.warn;
+  globalThis.Hooks = { on: (...args) => registered.push(args) };
+  game.user.isGM = true;
+  console.warn = (...args) => warnings.push(args);
+  const unsupportedDialog = {
+    get modalData() {
+      throw new Error('Legacy dialog data must not be accessed');
+    }
+  };
+  try {
+    for (const version of ['3.0.0', '3.4.16']) {
+      game.system = { id: 'animabf', version };
+      registerLegacyCombatDialogHooks();
+      await animateLegacyCombatDialog(unsupportedDialog);
+    }
+    assert.equal(registered.length, 0);
+    assert.equal(calls.length, 0);
+    assert.equal(warnings.length, 0);
+    game.system.version = '2.2.3';
+    registerLegacyCombatDialogHooks();
+    assert.equal(registered[0][0], 'renderGMCombatDialog');
+  } finally {
+    console.warn = originalWarn;
+  }
+});
+
+test('Anima 3.x initializes without legacy hooks or warnings and retains chat attack and defense playback', async () => {
+  const hooks = new Map();
+  const warnings = [];
+  const originalWarn = console.warn;
+  globalThis.Hooks = {
+    once: (name, callback) => hooks.set(name, callback),
+    on: (name, callback) => hooks.set(name, callback)
+  };
+  globalThis.foundry = { applications: { api: { DialogV2: class {} } } };
+  globalThis.ui = { notifications: { warn: message => warnings.push(message) } };
+  game.system = { id: 'animabf', version: '3.4.16' };
+  game.user.isGM = true;
+  game.users = { activeGM: game.user };
+  game.modules.set('abf-animations', {});
+  game.settings.register = () => {};
+  game.settings.registerMenu = () => {};
+  Sequencer.Database.entryExists = () => true;
+  token.actor.items.set('weapon', {
+    type: 'weapon',
+    name: 'Sword',
+    system: { critic: { primary: { value: 'cut' } } }
+  });
+  console.warn = (...args) => warnings.push(args);
+  try {
+    await import('../src/main.js?modern-system-regression');
+    hooks.get('init')();
+    hooks.get('ready')();
+    assert.ok(!hooks.has('renderGMCombatDialog'));
+    const message = {
+      id: 'modern-attack',
+      speaker: { token: 't' },
+      flags: {
+        animabf: {
+          kind: 'attackData',
+          attackData: { weaponId: 'weapon', attackAbility: 150, kiElement: 'fire' },
+          targets: [{ tokenUuid: 't', state: 'pending' }]
+        }
+      }
+    };
+    hooks.get('createChatMessage')(message, {}, 'u');
+    assert.equal(calls.filter(([key]) => key === 'play').length, 2);
+    hooks.get('updateChatMessage')(
+      message,
+      {
+        'flags.animabf.targets': [
+          {
+            tokenUuid: 't',
+            state: 'done',
+            defenseResult: { defenseAbility: 200, defenseType: 'dodge' }
+          }
+        ]
+      },
+      {},
+      'u'
+    );
+    assert.equal(calls.filter(([key]) => key === 'play').length, 3);
+    assert.equal(warnings.length, 0);
+  } finally {
+    console.warn = originalWarn;
+  }
 });

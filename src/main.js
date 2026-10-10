@@ -10,6 +10,7 @@ import {
   playWeaponAttackAnimation
 } from './animations/combatAnimations.js';
 import { resolveTokenFromRef } from './animations/resolveTokens.js';
+import { registerLegacyCombatDialogHooks } from './legacyCombatDialogs.js';
 import {
   attackContext,
   defenseReactions,
@@ -39,6 +40,7 @@ Hooks.once('init', () => {
   if (game.system.id !== 'animabf') return;
   registerAnimationSettings();
   registerAnimationHooks();
+  registerLegacyCombatDialogHooks();
   suppressBuiltInAnimations();
 });
 

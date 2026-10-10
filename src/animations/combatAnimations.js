@@ -26,9 +26,10 @@ const KI_ANIMATION_ELEMENTS = new Map([
  * Degradado silencioso (playEffect es no-op si faltan Sequencer/JB2A o el efecto no existe).
  * @param {object} flags  message.flags.animabf (kind === 'combatResult').
  */
-export async function playCombatResultAnimation(flags) {
+export async function playCombatResultAnimation(flags, { checkPrimaryGM = true } = {}) {
   // Con varios GMs, solo el primario dispara (Sequencer hace broadcast al resto).
-  if (game.users?.activeGM && game.users.activeGM.id !== game.user?.id) return;
+  if (checkPrimaryGM && game.users?.activeGM && game.users.activeGM.id !== game.user?.id)
+    return;
 
   const defenderRef = flags?.defender?.tokenId || flags?.defender?.actorId || '';
   const defenderToken = resolveTokenFromRef(defenderRef);
