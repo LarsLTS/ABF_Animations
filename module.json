@@ -2,7 +2,7 @@
   "id": "abf-animations",
   "title": "ABF Animations",
   "description": "JB2A animations for Anima Beyond Fantasy actions, powered by Sequencer.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "authors": [
     {
       "name": "LarsLTS",
@@ -33,5 +33,5 @@
   },
   "url": "https://github.com/LarsLTS/ABF_Animations",
   "manifest": "https://github.com/LarsLTS/ABF_Animations/releases/latest/download/module.json",
-  "download": "https://github.com/LarsLTS/ABF_Animations/releases/download/v0.2.0/abf-animations.zip"
+  "download": "https://github.com/LarsLTS/ABF_Animations/releases/download/v0.2.1/abf-animations.zip"
 }
